@@ -1,6 +1,6 @@
 {
   "name": "csv-transform",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "CSV tranform stream",
   "main": "index.js",
   "scripts": {},
@@ -10,10 +10,11 @@
   },
   "keywords": [
     "csv",
+    "mongodb",
     "transform",
-    "write",
     "cursor",
     "stream",
+    "readable",
     "mongo"
   ],
   "author": {

@@ -2,7 +2,7 @@
 
 ## A CSV transform stream
 
-Transforms a data stream into a csv stream.
+Transforms a data/object stream (e.g. a mongodb cursor stream) into a csv stream. The data stream should have data/error/close events, and support for pause/resume.
 
 ### Usage
 
