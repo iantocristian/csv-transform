@@ -1,0 +1,35 @@
+{
+  "name": "csv-transform",
+  "version": "0.0.1",
+  "description": "CSV tranform stream",
+  "main": "index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/iantocristian/csv-transform.git"
+  },
+  "keywords": [
+    "csv",
+    "transform",
+    "write",
+    "cursor",
+    "stream",
+    "mongo"
+  ],
+  "author": {
+    "name": "Cristian Ianto"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "underscore": "~1.4.4",
+    "readable-stream": "~1.0.2",
+    "moment": "~2.0.0"
+  },
+  "devDependencies": {
+  },
+  "files": [
+    "README.md",
+    "LICENSE.txt",
+    "index.js"
+  ]
+}
