@@ -20,13 +20,28 @@ Transforms a data/object stream (e.g. a mongodb cursor stream) into a csv stream
       {
         encoding: 'utf8', // encoding defaults to utf8
         delimiter: ',', // delimiter defaults to comma
-        endLine: '\n', // new line separator defaults to '\n'
+        endLine: '\n', // new line separator defaults to '\n',
+        headerRow: true,
         fieldMap: [
-          { fieldName: 'id' },
-          { fieldName: 'surname' },
-          { fieldName: 'forename' },
-          { fieldName: 'address.country' },
-          { fieldName: 'address.city' }
+          { fieldName: 'id', columnTitle: 'Id'  },
+          { fieldName: 'surname', columnTitle: 'Surname' },
+          { fieldName: 'gender', columnTitle: 'Gender', format: function(formatArgs) {
+              switch (formatArgs.value) {
+                case 'm':
+                case 'M':
+                  formatArgs.formattedValue = 'Male';
+                  break;
+                case 'f':
+                case 'F':
+                  formatArgs.formattedValue = 'Female';
+                  break;
+              }
+            }
+          },
+          { fieldName: 'forename', columnTitle: 'Forename' },
+          { fieldName: 'address.country', columnTitle: 'Country'  },
+          { fieldName: 'address.city', columnTitle: 'City'  },
+          { fieldName: 'phone', columnTitle: 'Phone'  }
         ] // fields to output in csv
       }
     );

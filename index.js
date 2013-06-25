@@ -28,12 +28,17 @@ function CSVTransform(dbStream, options) {
   });
 
   self._encoding = options._encoding || 'utf8';
+  self._endLine = options.endLine || '\n';
+  self._delimiter = options.delimiter || ',';
+  self._headerRow = options.headerRow || false;
+
   if (self._encoding === 'utf8') {
     self.push('\uFEFF', 'utf8');
   }
-  self._endLine = options.endLine || '\n';
 
-  self._delimiter = options.delimiter || ',';
+  if (self._headerRow) {
+    writeHeaderRow(self);
+  }
 
   self._dbStream = dbStream;
 
@@ -61,27 +66,16 @@ CSVTransform.prototype._read = function(n) {
    self._dbStream.resume();
 }
 
-function defaultFormat(formatArgs) {
-  var value = formatArgs.value;
+function writeHeaderRow(self) {
+  var line = '';
+  _.each(self._fieldMap, function(map) {
+    if (line.length>0) line += self._delimiter;
+    var columnTitle = map.columnTitle || map.fieldName;
+    line += '"' + columnTitle.replace('\\', '\\\\').replace('"', '\\"') + '"';
+  });
+  line += self._endLine;
 
-  var formattedValue;
-  if (_.isUndefined(value)) {
-    formattedValue = 'undefined'
-  }
-  else if (_.isNull(value)) {
-    formattedValue = 'null'
-  }
-  else if (_.isString(value) ||  _.isNumber(value) || _.isBoolean(value)) {
-    formattedValue = value.toString();
-  }
-  else if (_.isDate(value)) {
-    formattedValue = moment(value).format('YYYY-MM-DDTHH:mm:ss Z');
-  }
-  else {
-    formattedValue = value.toString();
-  }
-
-  formatArgs.formattedValue = formattedValue;
+  return self.push(line, self._encoding);
 }
 
 function transformWrite(self, object) {
@@ -124,12 +118,40 @@ function transformWrite(self, object) {
 
   var line = '';
   _.chain(self._fieldMap).values().sortBy('idx').each(function(map) {
-    if (line.length>0) line += self._delimiter;
-    var formattedValue = columns[map.fieldName];
-    line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';
+    if (!(_.isUndefined(columns[map.fieldName]) || _.isNull(columns[map.fieldName]))) {
+      var formattedValue = ''+columns[map.fieldName];
+      line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';
+    }
+    line += self._delimiter
   })
+  if (line.length>0) {
+    line = line.substring(0, line.length-1);
+  }
   line += self._endLine;
 
   return self.push(line, self._encoding);
+}
+
+function defaultFormat(formatArgs) {
+  var value = formatArgs.value;
+
+  var formattedValue;
+  if (_.isUndefined(value)) {
+    formattedValue = 'undefined'
+  }
+  else if (_.isNull(value)) {
+    formattedValue = 'null'
+  }
+  else if (_.isString(value) ||  _.isNumber(value) || _.isBoolean(value)) {
+    formattedValue = value.toString();
+  }
+  else if (_.isDate(value)) {
+    formattedValue = moment(value).format('YYYY-MM-DDTHH:mm:ss Z');
+  }
+  else {
+    formattedValue = value.toString();
+  }
+
+  formatArgs.formattedValue = formattedValue;
 }
 
