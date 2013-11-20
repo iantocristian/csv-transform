@@ -24,6 +24,7 @@ function CSVTransform(dbStream, options) {
 
   self._fields = [];
   _.each(options.fieldMap, function(map, idx) {
+    map._id = idx;
     map.idx = _.isUndefined(map.idx) ? idx : map.idx;
     self._fields.push(map);
   });
@@ -81,7 +82,11 @@ function writeHeaderRow(self) {
 }
 
 function transformWrite(self, object) {
-  var columns = [];
+  var columns = {};
+
+  _.each(self._fields, function(map) {
+    columns[map._id] = { idx:map.idx };
+  });
 
   (function _recursive(object, pPrefix) {
     _.each(object, function(pVal, pName) {
@@ -102,7 +107,7 @@ function transformWrite(self, object) {
           map.format(formatArgs);
         }
 
-        columns.push({ idx:map.idx, output: formatArgs.formattedValue });
+        columns[map._id].output = formatArgs.formattedValue;
       });
 
       if (_.isObject(pVal)) {
@@ -119,7 +124,7 @@ function transformWrite(self, object) {
   })(object, '');
 
   var line = '';
-  _.chain(columns).sortBy('idx').each(function(column) {
+  _.chain(columns).values().sortBy('idx').each(function(column) {
     if (!(_.isUndefined(column.output) || _.isNull(column.output))) {
       var formattedValue = ''+column.output;
       line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';

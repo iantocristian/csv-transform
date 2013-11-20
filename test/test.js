@@ -15,6 +15,9 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', {}, function (err, db) {
   for (var i = 0; i < 100; i++) {
     var d = new Date().getTime() + i * 1000;
     docs[i] = {a: i, b: { data : i }, createdAt: new Date(d)};
+    if (i === 1) {
+      docs[i].x = 'x';
+    }
   }
 
   // Create collection
