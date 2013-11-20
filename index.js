@@ -2,6 +2,7 @@ var _       = require('underscore');
 var util    = require('util');
 var stream  = require('readable-stream');
 var moment  = require('moment');
+var async   = require('async');
 
 module.exports = CSVTransform;
 
@@ -34,6 +35,8 @@ function CSVTransform(dbStream, options) {
   self._delimiter = options.delimiter || ',';
   self._headerRow = options.headerRow || false;
 
+  self._asyncWrite = options.asyncWrite || false;
+
   if (self._encoding === 'utf8') {
     self.push('\uFEFF', 'utf8');
   }
@@ -49,9 +52,21 @@ function CSVTransform(dbStream, options) {
   });
 
   self._dbStream.on('data', function(data) {
-  // if push() returns false, then we need to stop reading from source
-    if (!transformWrite(self, data)) {
-       self._dbStream.pause();
+
+    if (self._asyncWrite) {
+      self._dbStream.pause();
+      transformWriteAsync(self, data, function(more) {
+        // resume if transform stream can take more
+        if (more) {
+         self._dbStream.resume();
+        }
+      });
+    }
+    else {
+      // if transformWrite() returns false, then we need to stop reading from source
+      if (!transformWrite(self, data)) {
+         self._dbStream.pause();
+      }
     }
   });
 
@@ -76,6 +91,24 @@ function writeHeaderRow(self) {
     var columnTitle = map.columnTitle || map.fieldName;
     line += '"' + columnTitle.replace('\\', '\\\\').replace('"', '\\"') + '"';
   });
+  line += self._endLine;
+
+  return self.push(line, self._encoding);
+}
+
+function writeLine(self, columns) {
+
+  var line = '';
+  _.chain(columns).values().sortBy('idx').each(function(column) {
+    if (!(_.isUndefined(column.output) || _.isNull(column.output))) {
+      var formattedValue = ''+column.output;
+      line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';
+    }
+    line += self._delimiter;
+  })
+  if (line.length>0) {
+    line = line.substring(0, line.length-1);
+  }
   line += self._endLine;
 
   return self.push(line, self._encoding);
@@ -123,20 +156,74 @@ function transformWrite(self, object) {
     })
   })(object, '');
 
-  var line = '';
-  _.chain(columns).values().sortBy('idx').each(function(column) {
-    if (!(_.isUndefined(column.output) || _.isNull(column.output))) {
-      var formattedValue = ''+column.output;
-      line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';
-    }
-    line += self._delimiter;
-  })
-  if (line.length>0) {
-    line = line.substring(0, line.length-1);
-  }
-  line += self._endLine;
+  return writeLine(self, columns);
+}
 
-  return self.push(line, self._encoding);
+function transformWriteAsync(self, object, cb) {
+  var columns = {};
+
+  var _recursive = function(object, pPrefix, done) {
+
+    var keyValuesPairs = _.pairs(object);
+
+    async.mapSeries(keyValuesPairs, function(pair, cb) {
+      var pName = pair[0], pVal = pair[1];
+      var pQualifiedName = pPrefix + (pPrefix.length>0?'.':'') + pName;
+
+      var _formatValue = function(map, cb) {
+
+        var formatArgs = {
+          value: pVal,
+          name: pName,
+          qualifiedName: pQualifiedName
+        };
+
+        defaultFormat(formatArgs);
+        if (map.format) {
+          map.format(formatArgs, function(formattedValue) {
+            if (!_.isUndefined(formattedValue)) {
+              formatArgs.formattedValue = formattedValue;
+            }
+            columns[map._id].output = formatArgs.formattedValue;
+            cb();
+          });
+        }
+        else {
+          columns[map._id].output = formatArgs.formattedValue;
+          cb();
+        }
+      };
+
+      var _continue = function() {
+        if (_.isObject(pVal)) {
+          if (_.isArray(pVal)) {
+            for (var idx=0;idx<pVal.length;idx++) {
+              _recursive(pVal[idx], pQualifiedName+'['+idx+']', cb);
+            }
+          }
+          else {
+            _recursive(pVal, pQualifiedName, cb);
+          }
+        }
+        else {
+          cb();
+        }
+      };
+
+      var fields = _.where(self._fields, { fieldName: pQualifiedName });
+      async.mapSeries(fields, _formatValue, _continue);
+
+    }, done);
+  };
+
+  _.each(self._fields, function(map) {
+    columns[map._id] = { idx:map.idx };
+  });
+
+  _recursive(object, '', function() {
+
+    cb(writeLine(self, columns));
+  });
 }
 
 function defaultFormat(formatArgs) {
