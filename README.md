@@ -22,6 +22,7 @@ Transforms a data/object stream (e.g. a mongodb cursor stream) into a csv stream
         delimiter: ',', // delimiter defaults to comma
         endLine: '\n', // new line separator defaults to '\n',
         headerRow: true,
+        asyncWrite: false, // enable asynchronous transform/formatting, defaults to false
         fieldMap: [
           { fieldName: 'id', columnTitle: 'Id'  },
           { fieldName: 'surname', columnTitle: 'Surname' },
@@ -54,3 +55,21 @@ Transforms a data/object stream (e.g. a mongodb cursor stream) into a csv stream
       encoding: 'utf8'
     ));
 
+### Async transform/formatting
+
+When asyncWrite is set to true, format function takes an additional callback parameter:
+
+    // ...................................
+          { fieldName: 'somefield', columnTitle: 'Some Field', format: function(formatArgs, cb) {
+
+              // call some async function
+              getFormattedValue(formatArgs.value, function(formattedValue) {
+
+                  // set formatted value
+                  formatArgs.formattedValue = formattedValue;
+
+                  // in async mode, format function has to call back once completed
+                  cb();
+              }
+          },
+    // ...................................
