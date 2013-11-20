@@ -1,6 +1,7 @@
 var _       = require('underscore');
 var util    = require('util');
 var stream  = require('readable-stream');
+var moment  = require('moment');
 
 module.exports = CSVTransform;
 
@@ -21,10 +22,10 @@ function CSVTransform(dbStream, options) {
 
   var self = this;
 
-  self._fieldMap = {};
+  self._fields = [];
   _.each(options.fieldMap, function(map, idx) {
     map.idx = _.isUndefined(map.idx) ? idx : map.idx;
-    self._fieldMap[map.fieldName] =  map;
+    self._fields.push(map);
   });
 
   self._encoding = options._encoding || 'utf8';
@@ -68,7 +69,8 @@ CSVTransform.prototype._read = function(n) {
 
 function writeHeaderRow(self) {
   var line = '';
-  _.each(self._fieldMap, function(map) {
+  var fields = _.sortBy(self._fields, 'idx');
+  _.each(fields, function(map) {
     if (line.length>0) line += self._delimiter;
     var columnTitle = map.columnTitle || map.fieldName;
     line += '"' + columnTitle.replace('\\', '\\\\').replace('"', '\\"') + '"';
@@ -79,15 +81,15 @@ function writeHeaderRow(self) {
 }
 
 function transformWrite(self, object) {
-  var columns = {};
+  var columns = [];
 
   (function _recursive(object, pPrefix) {
     _.each(object, function(pVal, pName) {
 
       var pQualifiedName = pPrefix + (pPrefix.length>0?'.':'') + pName;
 
-      if ( self._fieldMap[pQualifiedName]) {
-        var map = self._fieldMap[pQualifiedName];
+      var fields = _.where(self._fields, { fieldName: pQualifiedName });
+      _.each(fields, function(map) {
 
         var formatArgs = {
           value: pVal,
@@ -100,8 +102,8 @@ function transformWrite(self, object) {
           map.format(formatArgs);
         }
 
-        columns[pQualifiedName] = formatArgs.formattedValue;
-      }
+        columns.push({ idx:map.idx, output: formatArgs.formattedValue });
+      });
 
       if (_.isObject(pVal)) {
         if (_.isArray(pVal)) {
@@ -117,12 +119,12 @@ function transformWrite(self, object) {
   })(object, '');
 
   var line = '';
-  _.chain(self._fieldMap).values().sortBy('idx').each(function(map) {
-    if (!(_.isUndefined(columns[map.fieldName]) || _.isNull(columns[map.fieldName]))) {
-      var formattedValue = ''+columns[map.fieldName];
+  _.chain(columns).sortBy('idx').each(function(column) {
+    if (!(_.isUndefined(column.output) || _.isNull(column.output))) {
+      var formattedValue = ''+column.output;
       line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';
     }
-    line += self._delimiter
+    line += self._delimiter;
   })
   if (line.length>0) {
     line = line.substring(0, line.length-1);
