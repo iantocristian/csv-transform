@@ -30,7 +30,7 @@ function CSVTransform(dbStream, options) {
     self._fields.push(map);
   });
 
-  self._encoding = options._encoding || 'utf8';
+  self._encoding = options.encoding || 'utf8';
   self._endLine = options.endLine || '\n';
   self._delimiter = options.delimiter || ',';
   self._headerRow = options.headerRow || false;
