@@ -118,29 +118,33 @@ function transformWrite(self, object) {
   var columns = {};
 
   _.each(self._fields, function(map) {
-    columns[map._id] = { idx:map.idx };
+    columns[map._id] = { idx:map.idx, formatted:false, map:map };
   });
 
-  (function _recursive(object, pPrefix) {
+  var _formatValue = function(value, map) {
+    var formatArgs = {
+      value: value,
+      name: map.fieldName
+    };
+
+    defaultFormat(formatArgs);
+    if (map.format) {
+      map.format(formatArgs);
+    }
+
+    columns[map._id].formatted = true;
+    columns[map._id].output = formatArgs.formattedValue;
+  };
+
+  // go through all object keys and sub-keys recursively
+  var _recursive = function(object, pPrefix) {
     _.each(object, function(pVal, pName) {
 
       var pQualifiedName = pPrefix + (pPrefix.length>0?'.':'') + pName;
 
       var fields = _.where(self._fields, { fieldName: pQualifiedName });
       _.each(fields, function(map) {
-
-        var formatArgs = {
-          value: pVal,
-          name: pName,
-          qualifiedName: pQualifiedName
-        };
-
-        defaultFormat(formatArgs);
-        if (map.format) {
-          map.format(formatArgs);
-        }
-
-        columns[map._id].output = formatArgs.formattedValue;
+        _formatValue(pVal, map);
       });
 
       if (_.isObject(pVal)) {
@@ -154,13 +158,46 @@ function transformWrite(self, object) {
         }
       }
     })
-  })(object, '');
+  };
+
+  _recursive(object, '');
+
+  // call format for missing fields
+  _.each(_.where(columns, { formatted: false }), function(column) {
+    _formatValue(void(0), column.map);
+  });
 
   return writeLine(self, columns);
 }
 
 function transformWriteAsync(self, object, cb) {
   var columns = {};
+
+  var _formatValue = function(value, map, cb) {
+
+    var formatArgs = {
+      value: value,
+      name: map.fieldName
+    };
+
+    columns[map._id].formatted = true;
+
+    defaultFormat(formatArgs);
+
+    if (map.format) {
+      map.format(formatArgs, function(formattedValue) {
+        if (!_.isUndefined(formattedValue)) {
+          formatArgs.formattedValue = formattedValue;
+        }
+        columns[map._id].output = formatArgs.formattedValue;
+        cb();
+      });
+    }
+    else {
+      columns[map._id].output = formatArgs.formattedValue;
+      cb();
+    }
+  };
 
   var _recursive = function(object, pPrefix, done) {
 
@@ -169,30 +206,6 @@ function transformWriteAsync(self, object, cb) {
     async.mapSeries(keyValuesPairs, function(pair, cb) {
       var pName = pair[0], pVal = pair[1];
       var pQualifiedName = pPrefix + (pPrefix.length>0?'.':'') + pName;
-
-      var _formatValue = function(map, cb) {
-
-        var formatArgs = {
-          value: pVal,
-          name: pName,
-          qualifiedName: pQualifiedName
-        };
-
-        defaultFormat(formatArgs);
-        if (map.format) {
-          map.format(formatArgs, function(formattedValue) {
-            if (!_.isUndefined(formattedValue)) {
-              formatArgs.formattedValue = formattedValue;
-            }
-            columns[map._id].output = formatArgs.formattedValue;
-            cb();
-          });
-        }
-        else {
-          columns[map._id].output = formatArgs.formattedValue;
-          cb();
-        }
-      };
 
       var _continue = function() {
         if (_.isObject(pVal)) {
@@ -211,18 +224,27 @@ function transformWriteAsync(self, object, cb) {
       };
 
       var fields = _.where(self._fields, { fieldName: pQualifiedName });
-      async.mapSeries(fields, _formatValue, _continue);
+      async.mapSeries(fields, function(map, cb) {
+        _formatValue(pVal, map, cb);
+      }, _continue);
 
     }, done);
   };
 
   _.each(self._fields, function(map) {
-    columns[map._id] = { idx:map.idx };
+    columns[map._id] = { idx:map.idx, formatted:false, map:map };
   });
 
   _recursive(object, '', function() {
+    var missing = _.where(columns, { formatted: false });
 
-    cb(writeLine(self, columns));
+    // call format for missing fields
+    async.mapSeries(missing, function(column, cb) {
+      _formatValue(void(0), column.map, cb);
+    }, function() {
+
+      cb(writeLine(self, columns));
+    });
   });
 }
 
@@ -243,7 +265,7 @@ function defaultFormat(formatArgs) {
     formattedValue = moment(value).format('YYYY-MM-DDTHH:mm:ss Z');
   }
   else {
-    formattedValue = value.toString();
+    formattedValue = '' + value;
   }
 
   formatArgs.formattedValue = formattedValue;

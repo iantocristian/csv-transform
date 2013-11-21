@@ -19,10 +19,10 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', {}, function (err, db) {
     for (var i = 0; i < 100; i++) {
       var d = new Date().getTime() + i * 1000;
       docs[i] = {a: i, b: { data : i }, createdAt: new Date(d)};
-      if (i === 1) {
-        docs[i].x = 'x';
-      }
     }
+
+    docs[0].x = null;
+    docs[1].x = 'x';
 
     // make sure the collection doesn't exist already
     db.dropCollection('csv_transform_test_data', function (err) {
@@ -67,7 +67,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', {}, function (err, db) {
             { fieldName: 'b', columnTitle: 'B2', format: function(args) { args.formattedValue = 'data=' + args.value.data; }, idx: 3 },
             { fieldName: 'createdAt', columnTitle: 'Created At', idx: 5 },
             { fieldName: 'b', columnTitle: 'B1', format: function(args) { args.formattedValue = JSON.stringify(args.value); }, idx: 2 },
-            { fieldName: 'x', columnTitle: 'X' }
+            { fieldName: 'x', columnTitle: 'X', format: function(args) { args.formattedValue = args.value ? ('' + args.value) : ''; } }
           ] // fields to output in csv
         }
       );
@@ -104,7 +104,7 @@ MongoClient.connect('mongodb://127.0.0.1:27017/test', {}, function (err, db) {
                 cb(JSON.stringify(args.value));
               }, 5);
             }, idx: 2 },
-            { fieldName: 'x', columnTitle: 'X' }
+            { fieldName: 'x', columnTitle: 'X', format: function(args, cb) { args.formattedValue = args.value ? ('' + args.value) : ''; cb(); } }
           ] // fields to output in csv
         }
       );
