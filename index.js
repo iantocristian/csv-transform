@@ -100,7 +100,14 @@ function writeLine(self, columns) {
 
   var line = '';
   _.chain(columns).values().sortBy('idx').each(function(column) {
-    if (!(_.isUndefined(column.output) || _.isNull(column.output))) {
+    if (_.isUndefined(column.output) || _.isNull(column.output)) {
+      //line += '';
+    }
+    else if (_.isNumber(column.output)) {
+      var formattedValue = ''+column.output;
+      line += formattedValue.replace('\\', '\\\\').replace('"', '\\"');
+    }
+    else {
       var formattedValue = ''+column.output;
       line += '"' + formattedValue.replace('\\', '\\\\').replace('"', '\\"') + '"';
     }
