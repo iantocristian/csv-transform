@@ -1,6 +1,6 @@
 {
   "name": "csv-transform",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "CSV tranform stream",
   "main": "index.js",
   "scripts": {},
