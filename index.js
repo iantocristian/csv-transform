@@ -89,7 +89,7 @@ function writeHeaderRow(self) {
   _.each(fields, function(map) {
     if (line.length>0) line += self._delimiter;
     var columnTitle = map.columnTitle || map.fieldName;
-    line += '"' + columnTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+    line += '"' + columnTitle.replace(/"/g, '""') + '"';
   });
   line += self._endLine;
 
@@ -109,7 +109,7 @@ function writeLine(self, columns) {
     }
     else {
       var formattedValue = ''+column.output;
-      line += '"' + formattedValue.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+      line += '"' + formattedValue.replace(/"/g, '""') + '"';
     }
     line += self._delimiter;
   })
