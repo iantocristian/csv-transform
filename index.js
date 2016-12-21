@@ -46,7 +46,9 @@ function CSVTransform(dbStream, options) {
   }
 
   self._dbStream = dbStream;
-
+  self._dbStream.on('end', function() {
+          self.push(null);
+  });
   self._dbStream.on('close', function() {
     self.push(null);
   });
@@ -277,4 +279,3 @@ function defaultFormat(formatArgs) {
 
   formatArgs.formattedValue = formattedValue;
 }
-
